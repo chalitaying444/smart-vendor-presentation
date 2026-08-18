@@ -1,0 +1,16 @@
+# ทีมทำงานบน Windows แต่ไฟล์ถูกแก้จากหลายที่ ถ้าไม่กำหนดไว้
+# git จะมองว่าไฟล์ทั้งไฟล์เปลี่ยน ทั้งที่เปลี่ยนแค่ตัวจบบรรทัด (CRLF/LF)
+# แล้ว diff จะอ่านไม่รู้เรื่องเลยว่าจริง ๆ แก้อะไรไป
+* text=auto
+
+# สคริปต์ PowerShell ต้องเป็น CRLF ไม่งั้นบางเครื่องรันไม่ผ่าน
+*.ps1 text eol=crlf
+
+# ไฟล์ไบนารี ห้ามให้ git ไปยุ่งกับตัวจบบรรทัด
+*.xlsx binary
+*.xls  binary
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.tgz  binary
+*.zip  binary

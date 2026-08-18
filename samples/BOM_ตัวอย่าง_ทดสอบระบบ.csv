@@ -1,0 +1,18 @@
+﻿ใบรายการวัสดุ (BILL OF MATERIALS)
+โครงการ: ปรับปรุงระบบสื่อสารสถานีไฟฟ้า A
+
+ลำดับ,รหัสสินค้า,รายการ,จำนวน,หน่วย,หมายเหตุ
+,,หมวดที่ 1 : งานระบบสื่อสารและเครือข่าย,,,
+1,,Network Firewall FG-100F พร้อม license 1 ปี,2,EA,ติดตั้งที่ห้อง MDF
+2,,Media converter IMC-101G single mode,8,EA,
+3,,สาย Fiber optic SM 24C ADSS ระยะ span 100 เมตร,"1,200",M,เดินตามแนวเสา
+4,,Managed ethernet switch 8 port industrial,4,EA,
+5,,ตู้ outdoor cabinet IP55 สแตนเลส 1200x800x400,3,EA,พร้อมฐานราก
+,,หมวดที่ 2 : งานระบบป้องกันและควบคุม,,,
+6,,Distance protection relay REL670,2,SET,ตามสเปกการไฟฟ้า
+7,,SCADA software license 500 tag แบบ perpetual,1,LOT,
+8,,Current transformer 22kV 200/5A,6,EA,
+,,หมวดที่ 3 : งานติดตั้งและบริการ,,,
+9,,ค่าจ้างงานโยธา ฐานรากตู้และบ่อพัก,1,LOT,ราคาเหมารวม
+10,,Preventive maintenance annual contract,1,YEAR,สัญญา 1 ปี
+11,,อุปกรณ์พิเศษเฉพาะงาน รุ่น XQ-9977 ที่ยังไม่เคยซื้อ,5,EA,ตั้งใจใส่ไว้ดูว่าระบบจะเดามั่วไหม

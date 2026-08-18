@@ -70,6 +70,9 @@ export const api = {
   catalogFacets: () => request('/catalog/facets'),
   overview: () => request('/catalog/overview'),
   refreshOverview: () => request('/catalog/overview/refresh', { method: 'POST' }),
+  // ภาพรวมเชิงกลยุทธ์ — คำนวณล่วงหน้าเหมือน overview จึงเรียกได้เร็ว
+  pareto: () => request('/catalog/pareto'),
+  spendTrend: () => request('/catalog/spend-trend'),
 
   // ---- ผู้ขาย (จาก Epicor) ----
   listVendors: (params = {}) => request(`/vendors${qs(params)}`),

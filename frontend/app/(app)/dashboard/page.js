@@ -10,6 +10,8 @@ import { useAuth } from '@/components/AuthContext';
 import { LoadingAnnounce, SkeletonRows, SkeletonStats } from '@/components/Skeleton';
 import OtdBadge from '@/components/OtdBadge';
 import { Toast } from '@/components/ui';
+import ParetoChart from '@/components/charts/ParetoChart';
+import SpendTrendChart from '@/components/charts/SpendTrendChart';
 
 export default function DashboardPage() {
   const user = useAuth();
@@ -17,15 +19,26 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState(null);
+  const [pareto, setPareto] = useState(null);
+  const [trend, setTrend] = useState(null);
 
   useEffect(() => {
     api.overview().then(setData).catch((e) => setError(e.message));
+    // สองชุดนี้โหลดแยกและไม่ทำให้หน้าพังถ้าล้มเหลว — เป็นส่วนเสริม ไม่ใช่แกนของหน้า
+    api.pareto().then(setPareto).catch(() => {});
+    api.spendTrend().then(setTrend).catch(() => {});
   }, []);
 
   async function refresh() {
     setRefreshing(true);
     try {
       setData(await api.refreshOverview());
+      const [p, t] = await Promise.all([
+        api.pareto().catch(() => null),
+        api.spendTrend().catch(() => null),
+      ]);
+      if (p) setPareto(p);
+      if (t) setTrend(t);
       setToast({ message: 'คำนวณข้อมูลสรุปใหม่แล้ว' });
     } catch (e) {
       setToast({ message: e.message, type: 'error' });
@@ -96,6 +109,39 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {!empty && (trend || pareto) && (
+        <div className="chart-grid" style={{ marginBottom: 16 }}>
+          {trend && (
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h2>มูลค่าซื้อรายปี</h2>
+                  <p className="cell-sub">นับจากบรรทัดใบสั่งซื้อ · หน่วยล้านบาท</p>
+                </div>
+              </div>
+              <div className="card-body">
+                <SpendTrendChart data={trend} />
+              </div>
+            </div>
+          )}
+          {pareto && (
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h2>เงินกระจุกอยู่ที่กี่รายแรก</h2>
+                  <p className="cell-sub">
+                    เส้นยิ่งชัน ยิ่งคุมงบได้ด้วยการดูแลรายการน้อยราย
+                  </p>
+                </div>
+              </div>
+              <div className="card-body">
+                <ParetoChart data={pareto} />
+              </div>
+            </div>
+          )}
         </div>
       )}
 

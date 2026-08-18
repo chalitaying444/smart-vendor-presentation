@@ -553,6 +553,15 @@ tr.clickable:hover { background: var(--cream); }
 .toolbar .spacer { flex: 1; }
 .two-col { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
 
+/* กราฟต้องการที่กว้างกว่าการ์ดตารางจึงจะอ่านออก — ยุบเป็นคอลัมน์เดียวเร็วกว่า .two-col
+   auto-fit + minmax ทำให้ยุบเองตามที่มีจริง ไม่ต้องพึ่ง media query ที่เดาความกว้างหน้าจอ
+   (แถบเมนูซ้ายกินที่ไปแล้ว ความกว้างหน้าจอจึงไม่เท่ากับความกว้างที่กราฟได้)
+
+   560px ตรงกับค่า NARROW ใน useChartWidth.js โดยเจตนา: กราฟที่แคบกว่านั้นจะสลับไป
+   โหมดป้ายน้อย ซึ่งควรเกิดบนมือถือเท่านั้น ไม่ใช่เกิดบน notebook เพราะถูกบีบให้อยู่ 2 คอลัมน์
+   ผลคือจอ notebook ได้กราฟเต็มความกว้างเรียงลงมา จอกว้างมากจึงวาง 2 คอลัมน์ */
+.chart-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); }
+
 /* ---- รายการติ๊กเลือกผู้ขาย ---- */
 .pick-list { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 0; }
 .pick-row {
@@ -1150,3 +1159,93 @@ a.btn.disabled { pointer-events: none; opacity: .55; }
 .bulk-bar .spacer { flex: 1; }
 .bulk-bar .link-btn { color: #fff; }
 .bulk-bar strong { font-size: 13.5px; }
+
+/* ============================================================
+   กราฟภาพรวมเชิงกลยุทธ์ (Pareto / แนวโน้มรายปี)
+   ------------------------------------------------------------
+   ชุดสีเทาของ .viz-root ข้างบนไม่ผ่านเกณฑ์ "แยกออกด้วยตาปกติ" (ΔE 13.2 < 15)
+   จึงใช้ได้ไม่เกิน 3 เส้นและต้องพึ่งลายเส้นช่วย · กราฟกลุ่มนี้ต้องแยกได้มากกว่านั้น
+   จึงใช้ชุดสีเชิงหมวดหมู่ที่ตรวจผ่านทั้ง 5 เกณฑ์ทั้งโหมดสว่างและมืด
+   (ช่วงความสว่าง / ความอิ่มสี / แยกได้เมื่อตาบอดสี / แยกได้ด้วยตาปกติ / ความต่างจากพื้น)
+   ตัวโครงหน้ายังขาว-ดำเหมือนเดิม — สีสงวนไว้ให้ "ข้อมูล" เท่านั้น
+   ============================================================ */
+.viz2 {
+  --v2-surface: #ffffff;
+  --v2-ink: var(--ink);
+  --v2-muted: var(--muted);
+  --v2-grid: #e6e6e6;
+  --v2-1: #2a78d6;
+  --v2-2: #eb6834;
+  --v2-3: #1baf7a;
+  --v2-4: #eda100;
+  --v2-5: #4a3aa7;
+  --v2-crit: #d03b3b;
+  position: relative;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .viz2 {
+    --v2-surface: #1a1a19;
+    --v2-ink: #ffffff;
+    --v2-muted: #c3c2b7;
+    --v2-grid: #3a3a37;
+    --v2-1: #3987e5;
+    --v2-2: #d95926;
+    --v2-3: #199e70;
+    --v2-4: #c98500;
+    --v2-5: #9085e9;
+  }
+}
+:root[data-theme="dark"] .viz2 {
+  --v2-surface: #1a1a19;
+  --v2-ink: #ffffff;
+  --v2-muted: #c3c2b7;
+  --v2-grid: #3a3a37;
+  --v2-1: #3987e5;
+  --v2-2: #d95926;
+  --v2-3: #199e70;
+  --v2-4: #c98500;
+  --v2-5: #9085e9;
+}
+
+.viz2-svg { width: 100%; height: auto; display: block; overflow: visible; }
+/* กราฟที่จำนวนแท่งมาจากข้อมูล (เช่น 1 แท่ง = 1 ปี) ลดจำนวนแท่งลงตามจอไม่ได้
+   ถ้าบีบให้พอดีจอแคบ แต่ละแท่งจะแคบกว่านิ้ว (เกณฑ์ 44px) จนแตะไม่โดน
+   จึงให้ "เลื่อนในกรอบตัวเอง" แทน — หน้าเว็บยังไม่เลื่อนข้าง ซึ่งเป็นสิ่งที่ห้าม */
+.viz2-scroll { overflow-x: auto; overflow-y: hidden; }
+.viz2-grid { stroke: var(--v2-grid); stroke-width: 1; }
+.viz2-base { stroke: var(--border-strong); stroke-width: 1.5; }
+.viz2-ax { fill: var(--v2-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.viz2-axlab { fill: var(--v2-muted); font-size: 10.5px; letter-spacing: .04em; }
+.viz2-val { fill: var(--v2-ink); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.viz2-line { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.viz2-dot { stroke: var(--v2-surface); stroke-width: 2; }
+/* แท่ง/จุดที่รับ hover ต้องมีพื้นที่กดใหญ่กว่าตัวมาร์คเอง โดยเฉพาะบนมือถือ */
+.viz2-hit { fill: transparent; cursor: pointer; }
+.viz2-hit:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+.viz2-legend {
+  display: flex; flex-wrap: wrap; gap: 8px 16px;
+  margin-top: 10px; font-size: 11.5px; color: var(--v2-ink);
+}
+.viz2-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.viz2-sw { width: 10px; height: 10px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18); }
+
+.viz2-tip {
+  margin-top: 8px; font-size: 11.5px; color: var(--v2-ink);
+  background: var(--cream); border: 1px solid var(--border);
+  padding: 6px 10px; display: block; min-height: 1.2em;
+  font-variant-numeric: tabular-nums;
+}
+/* บนมือถือคำอธิบายใต้กราฟอ่านง่ายกว่า tooltip ลอย เพราะนิ้วบังจุดที่แตะ */
+.viz2-note { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+
+/* ตารางสำรองสำหรับคนที่อ่านกราฟไม่ได้ (screen reader / พิมพ์ออกกระดาษ) */
+.viz2-table { margin-top: 10px; }
+.viz2-table summary {
+  font-size: 11.5px; color: var(--muted); cursor: pointer;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.viz2-table summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.viz2-table table { width: 100%; margin-top: 8px; font-size: 12.5px; border-collapse: collapse; }
+.viz2-table th, .viz2-table td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.viz2-table td.n, .viz2-table th.n { text-align: right; font-variant-numeric: tabular-nums; }

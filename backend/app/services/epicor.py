@@ -798,3 +798,110 @@ async def overview() -> Dict[str, Any]:
         "by_doc_type": await transaction_summary(),
         "delivery": await delivery.company_summary(),
     }
+
+
+# ------------------------------------------------------------ ภาพรวมเชิงกลยุทธ์
+# สองฟังก์ชันล่างตอบคำถามระดับ "ทั้งพอร์ต" ซึ่งต่างจากที่เหลือในไฟล์นี้ที่ตอบ
+# ทีละรายการ · ทั้งคู่ต้องกวาดข้อมูลทั้งฐานจึงถูกเรียกผ่าน snapshot เท่านั้น
+# ไม่ใช่เรียกสดทุกครั้งที่เปิดหน้า (ดู services/snapshot.py)
+
+def _dig(doc: Dict[str, Any], dotted: str) -> Any:
+    """อ่านฟิลด์ซ้อนด้วยเส้นทางแบบจุด เช่น "stats.po.amount" — ไม่มีก็คืน None"""
+    cur: Any = doc
+    for part in dotted.split("."):
+        cur = cur.get(part) if isinstance(cur, dict) else None
+    return cur
+
+
+async def pareto() -> Dict[str, Any]:
+    """เงินกระจุกตัวที่สินค้า/ผู้ขายกี่รายแรก
+
+    ตอบคำถามที่ตาราง "8 อันดับแรก" ตอบไม่ได้: ควรเอาแรงไปลงกับกี่รหัสจึงคุมงบได้
+    คืนเส้นสะสมแบบย่อจุดแล้ว (ไม่ส่ง 8,620 จุดไปให้เบราว์เซอร์วาด) พร้อมจุดตัด
+    ที่ใช้ตัดสินใจจริงคือ 50/80/90%
+    """
+    db = get_database()
+
+    async def _curve(coll: str, amount_field: str, match: Dict[str, Any]) -> Dict[str, Any]:
+        amounts = [
+            _dig(d, amount_field) or 0
+            async for d in db[coll].find(match, {amount_field: 1}).sort(amount_field, -1)
+        ]
+        amounts = [a for a in amounts if a > 0]
+        total = sum(amounts)
+        n = len(amounts)
+        if not total:
+            return {"total": 0.0, "count": 0, "points": [], "thresholds": {}}
+
+        # ย่อจุด: ช่วงต้นเก็บละเอียดเพราะเป็นช่วงที่เส้นชันและเป็นคำตอบของคำถาม
+        # ช่วงท้ายเก็บหยาบได้เพราะแบนแล้ว — ถ้าย่อแบบเว้นระยะเท่ากันจะกินหัวโค้งหาย
+        marks = sorted({
+            *range(0, min(n, 50) + 1, 5),
+            *range(50, min(n, 500) + 1, 25),
+            *range(500, min(n, 2000) + 1, 150),
+            *range(2000, n + 1, max(1, n // 20)),
+            n,
+        })
+        run, points, idx = 0.0, [], 0
+        for i, a in enumerate(amounts, start=1):
+            run += a
+            if idx < len(marks) and i >= marks[idx]:
+                points.append({"n": i, "pct": round(run / total * 100, 2)})
+                while idx < len(marks) and marks[idx] <= i:
+                    idx += 1
+
+        thresholds, run = {}, 0.0
+        want = [(50, "p50"), (80, "p80"), (90, "p90")]
+        for i, a in enumerate(amounts, start=1):
+            run += a
+            while want and run / total * 100 >= want[0][0]:
+                thresholds[want[0][1]] = {"n": i, "share_of_catalog": round(i / n * 100, 2)}
+                want.pop(0)
+            if not want:
+                break
+        return {"total": total, "count": n, "points": points, "thresholds": thresholds}
+
+    return {
+        "items": await _curve(schema.EP_ITEMS, "stats.totalAmount", {}),
+        "vendors": await _curve(schema.EP_VENDORS, "stats.po.amount", {"hasPurchase": True}),
+    }
+
+
+async def spend_trend() -> Dict[str, Any]:
+    """มูลค่าซื้อและจำนวนผู้ขายรายปี — แนวโน้มตามเวลาที่ยังไม่มีหน้าไหนแสดง
+
+    นับจากบรรทัดใบสั่งซื้อเท่านั้น (ไม่รวมรับของ/ใบแจ้งหนี้) เพราะเป็นตัวแทนของ
+    "การตัดสินใจซื้อ" ซึ่งเป็นสิ่งที่ฝ่ายจัดซื้อควบคุมได้จริง
+    """
+    db = get_database()
+    rows = await db[schema.EP_TRANSACTIONS].aggregate([
+        {"$match": {"docType": schema.DOC_PO, "date": {"$ne": None}}},
+        {"$group": {
+            "_id": {"$year": "$date"},
+            "amount": {"$sum": "$amount"},
+            "lines": {"$sum": 1},
+            "vendors": {"$addToSet": "$vendor.id"},
+            "parts": {"$addToSet": "$part.num"},
+        }},
+        {"$sort": {"_id": 1}},
+    ]).to_list(60)
+
+    years = [
+        {
+            "year": r["_id"],
+            "amount": r["amount"] or 0,
+            "lines": r["lines"],
+            "vendors": len(r.get("vendors") or []),
+            "parts": len(r.get("parts") or []),
+        }
+        for r in rows if r.get("_id")
+    ]
+    # ปีสุดท้ายมักยังไม่ครบปี — ติดธงไว้ให้หน้าบ้านแสดงต่างจากปีที่จบแล้ว
+    latest = await db[schema.EP_TRANSACTIONS].find_one(
+        {"docType": schema.DOC_PO, "date": {"$ne": None}}, {"date": 1}, sort=[("date", -1)]
+    )
+    last_date = latest.get("date") if latest else None
+    if years and last_date is not None:
+        years[-1]["partial"] = years[-1]["year"] == last_date.year
+
+    return {"years": years, "last_po_date": last_date}

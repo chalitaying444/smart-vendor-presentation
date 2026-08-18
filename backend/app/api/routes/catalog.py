@@ -16,11 +16,15 @@ router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 SNAP_OVERVIEW = "catalog.overview"
 SNAP_FACETS = "catalog.facets"
+SNAP_PARETO = "catalog.pareto"
+SNAP_TREND = "catalog.spend_trend"
 
 # ชุดข้อมูลสรุปทั้งหมด + วิธีสร้าง — ใช้ตอนวอร์มตอนเปิดเซิร์ฟเวอร์ด้วย
 SNAPSHOT_BUILDERS = {
     SNAP_OVERVIEW: epicor.overview,
     SNAP_FACETS: epicor.facets,
+    SNAP_PARETO: epicor.pareto,
+    SNAP_TREND: epicor.spend_trend,
 }
 
 
@@ -105,14 +109,37 @@ async def overview(_: Dict[str, Any] = Depends(get_current_user)):
     return serialize(_with_meta(snap))
 
 
+@router.get(
+    "/pareto",
+    summary="เงินกระจุกตัวที่สินค้า/ผู้ขายกี่รายแรก",
+    description=(
+        "เส้นสะสมของมูลค่าซื้อ เรียงจากรายที่ใช้เงินมากสุด พร้อมจุดตัด 50/80/90% "
+        "ตอบคำถามว่าควรเอาแรงเจรจาไปลงกับกี่รหัส/กี่ราย — คำนวณล่วงหน้าเก็บไว้เหมือน overview"
+    ),
+)
+async def pareto(_: Dict[str, Any] = Depends(get_current_user)):
+    snap = await snapshot.get(SNAP_PARETO, epicor.pareto)
+    return serialize(_with_meta(snap))
+
+
+@router.get(
+    "/spend-trend",
+    summary="มูลค่าซื้อรายปี",
+    description="นับจากบรรทัดใบสั่งซื้อ พร้อมจำนวนผู้ขายและรหัสสินค้าที่เคลื่อนไหวในแต่ละปี",
+)
+async def spend_trend(_: Dict[str, Any] = Depends(get_current_user)):
+    snap = await snapshot.get(SNAP_TREND, epicor.spend_trend)
+    return serialize(_with_meta(snap))
+
+
 @router.post(
     "/overview/refresh",
     summary="สั่งคำนวณข้อมูลสรุปใหม่ทันที",
     description="ใช้หลังรัน ETL รอบใหม่ ถ้าไม่อยากรอรอบอัปเดตประจำวัน",
 )
 async def refresh_overview(_: Dict[str, Any] = Depends(require_buyer)):
-    await snapshot.build(SNAP_OVERVIEW, epicor.overview)
-    await snapshot.build(SNAP_FACETS, epicor.facets)
+    for name, builder in SNAPSHOT_BUILDERS.items():
+        await snapshot.build(name, builder)
     snap = await snapshot.get(SNAP_OVERVIEW, epicor.overview)
     return serialize(_with_meta(snap))
 
